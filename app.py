@@ -20,7 +20,7 @@ def home():
 
 
 
-API_KEY="your api key"
+API_KEY = os.getenv("GROQ_API_KEY")
 url="https://api.groq.com/openai/v1/chat/completions"
 
 headers={
