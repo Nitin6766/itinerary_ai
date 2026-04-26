@@ -14,14 +14,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-@app.get("/")
-def home():
-    return {"message": "working"}
+
 
 
 
 API_KEY = os.getenv("GROQ_API_KEY")
 url="https://api.groq.com/openai/v1/chat/completions"
+
+@app.get("/")
+def home():
+    return {"api_key_loaded": API_KEY is not None}
 
 headers={
   "Authorization":f"Bearer {API_KEY}",
