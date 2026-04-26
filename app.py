@@ -1,13 +1,12 @@
-import os
-import time
-import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import requests
+import time
+import os
 
-# App init
 app = FastAPI()
 
-# CORS (safe for testing)
+# CORS (frontend ke liye safe)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,35 +15,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+# 🔑 API KEY (Railway me env variable se aayega)
 API_KEY = os.getenv("GROQ_API_KEY")
 
-# API URL
 url = "https://api.groq.com/openai/v1/chat/completions"
 
-# Memory (simple)
-chat_history = {}
-
-# Root route (test)
+# ✅ TEST ROUTE (IMPORTANT)
 @app.get("/")
 def home():
     return {
-        "status": "ok",
+        "status": "running",
         "api_key_loaded": API_KEY is not None
     }
 
-# AI route
+# chat memory
+chat_history = {}
+
+# 🤖 AI ROUTE
 @app.get("/ai")
-async def bhakol(budget: str, location: str, days: int, user_id: int):
+def ai(budget: str, location: str, days: int, user_id: int):
 
-    # API key check
-    if not API_KEY:
-        return {"error": "API key missing"}
-
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
-    }
+    if API_KEY is None:
+        return {"error": "API KEY NOT SET"}
 
     prompt = f"""
     Create a detailed travel itinerary:
@@ -67,37 +59,37 @@ async def bhakol(budget: str, location: str, days: int, user_id: int):
         "content": prompt
     })
 
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
+    }
+
     data = {
         "model": "llama-3.3-70b-versatile",
         "messages": chat_history[user_id]
     }
 
-    try:
-        max_retries = 3
+    # retry logic
+    for _ in range(3):
+        response = requests.post(url, headers=headers, json=data)
 
-        for i in range(max_retries):
-            response = requests.post(url, headers=headers, json=data)
+        if response.status_code == 200:
+            break
+        elif response.status_code == 429:
+            time.sleep(2)
+        else:
+            return {"error": response.status_code}
 
-            if response.status_code == 200:
-                break
-            elif response.status_code == 429:
-                time.sleep(3)
-            else:
-                return {"error": response.status_code}
+    result = response.json()
 
-        result = response.json()
+    if "choices" in result:
+        answer = result["choices"][0]["message"]["content"]
 
-        if "choices" in result:
-            answer = result["choices"][0]["message"]["content"]
+        chat_history[user_id].append({
+            "role": "assistant",
+            "content": answer
+        })
 
-            chat_history[user_id].append({
-                "role": "assistant",
-                "content": answer
-            })
+        return {"answer": answer}
 
-            return {"answer": answer}
-
-        return {"error": result}
-
-    except Exception as e:
-        return {"error": str(e)}
+    return {"error": result}
