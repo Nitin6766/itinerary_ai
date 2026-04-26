@@ -2,6 +2,8 @@ import requests
 import time
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import os
+PORT = int(os.environ.get("PORT", 8000))
 
 
 app=FastAPI()
